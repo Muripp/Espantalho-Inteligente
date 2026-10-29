@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+webapp/dados/
+processador/memoria/
+processador/pendentes/
+.venv/
+venv/
+*.log
+.env

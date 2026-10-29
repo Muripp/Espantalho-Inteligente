@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIGIA</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <span class="logo">◉</span>
+      <div>
+        <h1>VIGIA</h1>
+        <p>espantalho inteligente · dashboard</p>
+      </div>
+    </div>
+    <div class="topo-direita">
+      <span id="status-proc" class="pilula"><i></i><span>processador…</span></span>
+      <label class="seletor">
+        período
+        <select id="periodo">
+          <option value="1">última hora</option>
+          <option value="24" selected>últimas 24 h</option>
+          <option value="168">últimos 7 dias</option>
+          <option value="0">tudo</option>
+        </select>
+      </label>
+      <button id="btn-memoria" class="btn" title="Escolha a pasta 'memoria' gravada pelo Raspberry Pi">📥 Importar memória do Pi</button>
+      <input id="input-memoria" type="file" webkitdirectory directory multiple hidden>
+      <button id="btn-limpar" class="btn fantasma" title="Apaga todas as análises e fotos do banco">Limpar dados</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- cartões por animal -->
+    <section id="cartoes" class="cartoes"></section>
+
+    <!-- testar pasta -->
+    <section class="painel" id="painel-teste">
+      <div class="painel-topo">
+        <div>
+          <h2>🧪 Testar pasta</h2>
+          <p class="sub">Cada foto vai pro processador, que roda o modelo e devolve o que viu.</p>
+        </div>
+        <div class="acoes">
+          <select id="lotes-anteriores" title="Ver um teste anterior">
+            <option value="">testes anteriores…</option>
+          </select>
+          <button id="btn-pasta" class="btn primario">📁 Selecionar pasta</button>
+          <input id="input-pasta" type="file" webkitdirectory directory multiple hidden>
+        </div>
+      </div>
+
+      <div id="teste-vazio" class="vazio">
+        <div class="vazio-icone">📁</div>
+        <p><b>Nenhuma pasta selecionada.</b><br>Escolha uma pasta com fotos (.jpg, .png, .webp). As subpastas também entram.</p>
+      </div>
+
+      <div id="teste-ativo" hidden>
+        <div class="lote-cabecalho">
+          <div>
+            <div id="lote-nome" class="lote-nome"></div>
+            <div id="lote-info" class="lote-info"></div>
+          </div>
+          <div class="acoes">
+            <button id="btn-cancelar" class="btn fantasma">Parar</button>
+            <a id="btn-csv" class="btn" href="#" download>⬇ Baixar CSV</a>
+          </div>
+        </div>
+        <div class="progresso" title="claro = enviadas · escuro = processadas">
+          <div id="barra-enviadas" class="barra enviadas"></div>
+          <div id="barra-processadas" class="barra processadas"></div>
+        </div>
+        <div id="aviso-offline" class="aviso" hidden>
+          ⚠️ O processador não está rodando. As fotos ficam na fila até ele ligar (<code>iniciar.bat</code> abre os dois).
+        </div>
+        <div id="lote-resumo" class="chips"></div>
+        <div class="tabela-topo">
+          <label class="seletor">mostrar
+            <select id="filtro-animal"><option value="">todos</option></select>
+          </label>
+          <span id="tabela-contagem" class="sub"></span>
+        </div>
+        <div class="tabela-rolagem">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th></th><th>Arquivo</th><th>Resultado</th><th>Decisão</th><th>Resposta → ESP32</th>
+                <th>Todas as detecções</th><th>Data do arquivo</th><th>Processado</th><th class="num">Tempo</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-corpo"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="grade">
+      <section class="painel">
+        <div class="painel-topo"><h2>🕒 Últimas análises</h2><span class="sub">ao vivo</span></div>
+        <ul id="feed" class="feed"></ul>
+      </section>
+      <div class="coluna">
+        <section class="painel">
+          <div class="painel-topo"><h2>📈 Animais por hora</h2></div>
+          <div class="grafico"><canvas id="grafico-horas"></canvas></div>
+        </section>
+        <section class="painel">
+          <div class="painel-topo">
+            <h2>📡 Eventos pro ESP32</h2>
+            <span class="sub">ESP32 virtual (simulado)</span>
+          </div>
+          <ul id="comandos" class="lista-cmd"></ul>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- detalhe de uma análise -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-caixa">
+      <button id="modal-fechar" class="modal-fechar" aria-label="Fechar">✕</button>
+      <img id="modal-foto" alt="">
+      <div id="modal-info" class="modal-info"></div>
+    </div>
+  </div>
+</body>
+</html>

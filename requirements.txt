@@ -1,0 +1,13 @@
+# processador
+onnxruntime>=1.16
+opencv-python>=4.8
+numpy>=1.24
+pyyaml>=6
+requests>=2.31
+# ESP32 de verdade (cabo USB ou Wi-Fi)
+pyserial>=3.5
+paho-mqtt>=1.6
+# webapp
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

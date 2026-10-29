@@ -1,0 +1,16 @@
+# Serviço systemd do processador do VIGIA (o instalar.sh preenche __PASTA__ e __USUARIO__).
+[Unit]
+Description=VIGIA - processador do espantalho
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+User=__USUARIO__
+WorkingDirectory=__PASTA__
+ExecStart=__PASTA__/.venv/bin/python -m processador --config processador/config_pi.yaml
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

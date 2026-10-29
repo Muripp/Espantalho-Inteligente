@@ -1,0 +1,42 @@
+# Configuração do processador NO RASPBERRY PI (no campo).
+# Rodar:  python -m processador --config processador/config_pi.yaml
+# (o serviço do raspberry/instalar.sh já usa este arquivo)
+
+dispositivo: pi-campo-1
+modelo: modelos/espantalho_aves.onnx
+respostas: respostas.yaml
+log: INFO
+
+fonte:
+  tipo: picamera
+  largura: 1280
+  altura: 720
+  rotacao: 0                     # 180 se a câmera estiver de cabeça pra baixo
+  area_minima_porcentagem: 0.4   # quanto da imagem precisa mexer pra tirar foto (aumente se o vento atrapalhar)
+  periodico_s: 10                # foto de tempos em tempos mesmo sem movimento (ave parada)
+
+# ---- como falar com o ESP32: escolha UM dos dois blocos ----
+canal_esp32:                     # A) ESP32 no cabo USB do Pi
+  tipo: serial
+  portas:
+    torre1: /dev/ttyUSB0         # ls /dev/ttyUSB* /dev/ttyACM*  pra descobrir (alguns ESP32 aparecem como ttyACM0)
+  espera_ack_s: 1.0              # quanto espera a confirmação antes de reenviar
+  max_reenvios: 2
+
+# canal_esp32:                   # B) ESP32 pelo Wi-Fi (o Pi roda o broker Mosquitto)
+#   tipo: mqtt
+#   broker: localhost
+#   porta: 1883
+#   espera_ack_s: 1.0
+#   max_reenvios: 2
+
+memoria:
+  pasta: memoria                 # processador/memoria/eventos.jsonl + fotos/ + esp32.jsonl
+  salvar_foto: true
+  max_fotos: 5000
+  intervalo_aguardando_s: 10
+
+webapp:
+  ativado: false                 # true + url do PC com o dashboard, se tiver rede
+  url: http://192.168.0.10:8000
+  enviar_foto: so_com_animal

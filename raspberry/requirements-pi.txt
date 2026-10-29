@@ -1,0 +1,6 @@
+# No Raspberry Pi: picamera2, OpenCV e numpy vêm do sistema (apt), não do pip.
+onnxruntime>=1.16
+pyyaml>=6
+requests>=2.31
+pyserial>=3.5
+paho-mqtt>=1.6
