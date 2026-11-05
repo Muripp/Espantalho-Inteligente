@@ -7,3 +7,6 @@ processador/pendentes/
 venv/
 *.log
 .env
+testes/pi/
+firmware/esp32/.pio/
+.pio-core/

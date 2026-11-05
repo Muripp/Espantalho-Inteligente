@@ -1,0 +1,29 @@
+# Exclusivo para firmware vigia-receptor-1.0.0 em SIMULAÇÃO.
+# Todos os atuadores devem permanecer desconectados.
+dispositivo: pi-teste-esp32
+modelo: modelos/espantalho_aves.onnx
+respostas: respostas.yaml
+log: INFO
+fonte:
+  tipo: webcam
+  camera: /dev/video0
+  largura: 640
+  altura: 480
+  formato: MJPG
+  periodico_s: 1
+  max_fotos_s: 2
+canal_esp32:
+  tipo: serial
+  baud: 115200
+  portas:
+    torre1: /dev/ttyUSB0
+  espera_ack_s: 1.0
+  max_reenvios: 2
+memoria:
+  pasta: ../testes/pi/memoria-esp32
+  salvar_foto: true
+  max_fotos: 100
+  intervalo_aguardando_s: 10
+webapp:
+  ativado: false
+  url: http://localhost:8000

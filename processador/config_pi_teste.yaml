@@ -1,0 +1,23 @@
+# Teste USB seguro: não abre serial, MQTT ou dashboard.
+dispositivo: pi-teste-usb
+modelo: modelos/espantalho_aves.onnx
+respostas: respostas.yaml
+log: INFO
+fonte:
+  tipo: webcam
+  camera: /dev/video0
+  largura: 640
+  altura: 480
+  formato: MJPG
+  periodico_s: 1
+  max_fotos_s: 2
+canal_esp32:
+  tipo: vazio
+memoria:
+  pasta: ../testes/pi/memoria
+  salvar_foto: true
+  max_fotos: 100
+  intervalo_aguardando_s: 10
+webapp:
+  ativado: false
+  url: http://localhost:8000
