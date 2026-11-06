@@ -48,6 +48,8 @@ class CanalSerial(CanalTransporte):
             s = self._serial.Serial(caminho, self.baud, timeout=0, write_timeout=0.5)
             self.abertas[esp32] = s
             self.buffers[esp32] = b""
+            # Solicita identificação imediatamente, mesmo se a abertura não reiniciar o ESP.
+            s.write(codificar({"tipo": "consulta", "v": 1}))
             log.info("porta %s aberta (%s)", caminho, esp32)
             return True
         except (self._serial.SerialException, OSError) as e:

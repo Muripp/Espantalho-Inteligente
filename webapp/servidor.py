@@ -9,21 +9,26 @@ e abrir http://localhost:8000
 """
 
 import base64
+import asyncio
 import csv
 import io
+import json
 import os
 import threading
 import time
 from collections import deque
 from datetime import datetime
+from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from compartilhado.mensagens import MensagemESP32, agora_ms, novo_id
 
 from .banco import Banco
+from .atuadores import ControleServos
 
 PASTA = os.path.dirname(os.path.abspath(__file__))
 DADOS = os.path.join(PASTA, "dados")
@@ -32,18 +37,103 @@ os.makedirs(FOTOS, exist_ok=True)
 
 app = FastAPI(title="VIGIA")
 banco = Banco(os.path.join(DADOS, "vigia.db"))
+servos = ControleServos()
+
+
+class TesteServo(BaseModel):
+    servo: Literal["1", "2", "ambos"]
+
+
+class Heartbeat(BaseModel):
+    atuadores: dict | None = None
+
+
+@app.get("/api/servos")
+def estado_servos():
+    return servos.estado()
+
+
+@app.post("/api/servos/testar")
+def testar_servos(teste: TesteServo):
+    try:
+        return servos.solicitar(teste.servo)
+    except ConnectionError as e:
+        raise HTTPException(503, str(e))
+    except BlockingIOError as e:
+        raise HTTPException(409, str(e))
 
 # Filas em memória (zeram se reiniciar o servidor; ok pra simulador)
 fila_imagens: deque = deque()          # fotos esperando o processador
 fila_esp32: deque = deque()            # mensagens "do ESP32" esperando o processador
 trava = threading.Lock()
 estado = {"ultimo_contato_processador": 0}
+camera = {"jpeg": None, "ts": 0, "sequencia": 0}
+CONFIG_RECONHECIMENTO = os.path.join(DADOS, "reconhecimento.json")
+try:
+    with open(CONFIG_RECONHECIMENTO, encoding="utf-8") as f:
+        reconhecimento = json.load(f)
+except FileNotFoundError:
+    reconhecimento = {"threshold": 0.45}
+
+
+class ConfigReconhecimento(BaseModel):
+    threshold: float = Field(ge=0.01, le=1, allow_inf_nan=False)
+
+
+@app.get("/api/reconhecimento")
+def config_reconhecimento():
+    with trava:
+        return dict(reconhecimento)
+
+
+@app.put("/api/reconhecimento")
+def configurar_reconhecimento(config: ConfigReconhecimento):
+    with trava:
+        dados = {"threshold": config.threshold}
+        temporario = CONFIG_RECONHECIMENTO + ".tmp"
+        with open(temporario, "w", encoding="utf-8") as f:
+            json.dump(dados, f)
+        os.replace(temporario, CONFIG_RECONHECIMENTO)
+        reconhecimento.update(dados)
+        return dict(reconhecimento)
 
 
 def ms(): return int(time.time() * 1000)
 
 
 # ======================= usado pelo PROCESSADOR =======================
+
+@app.post("/api/processador/heartbeat")
+def heartbeat(dados: Heartbeat):
+    estado["ultimo_contato_processador"] = ms()
+    comando = servos.atualizar(dados.atuadores) if dados.atuadores is not None else None
+    return {"ok": True, **config_reconhecimento(), "comando_servo": comando}
+
+
+@app.post("/api/camera/quadro")
+async def receber_quadro(request: Request):
+    jpeg = await request.body()
+    if len(jpeg) > 2_000_000 or not jpeg.startswith(b'\xff\xd8'):
+        raise HTTPException(400, "Quadro JPEG inválido")
+    with trava:
+        camera.update(jpeg=jpeg, ts=ms(), sequencia=camera["sequencia"] + 1)
+    return {"ok": True}
+
+
+@app.get("/api/camera/stream")
+async def stream_camera(request: Request):
+    async def quadros():
+        anterior = -1
+        while not await request.is_disconnected():
+            with trava:
+                jpeg, ts, seq = camera["jpeg"], camera["ts"], camera["sequencia"]
+            if jpeg and ms() - ts < 3000 and seq != anterior:
+                anterior = seq
+                yield (b'--quadro\r\nContent-Type: image/jpeg\r\nContent-Length: '
+                       + str(len(jpeg)).encode() + b'\r\n\r\n' + jpeg + b'\r\n')
+            await asyncio.sleep(0.03)
+    return StreamingResponse(quadros(), media_type="multipart/x-mixed-replace; boundary=quadro",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 @app.post("/api/analises")
 async def receber_analise(request: Request):
@@ -102,7 +192,8 @@ def status():
     ultimo = estado["ultimo_contato_processador"]
     with trava:
         na_fila = len(fila_imagens)
-    return {"agora": ms(), "processador_online": ms() - ultimo < 5000,
+    return {"agora": ms(), "processador_online": ms() - ultimo < 15000,
+            "camera_online": ms() - camera["ts"] < 3000,
             "ultimo_contato_processador": ultimo or None, "fila_imagens": na_fila}
 
 
@@ -119,6 +210,12 @@ def analises(lote: str | None = None, animal: str | None = None, limite: int = 5
 @app.get("/api/eventos-esp32")
 def eventos_esp32(limite: int = 20):
     return banco.eventos_esp32(limite)
+
+
+@app.post("/api/eventos-esp32")
+async def registrar_evento(request: Request):
+    banco.registrar_evento_recebido(await request.json(), status="enviado")
+    return {"ok": True}
 
 
 # ---------- teste de pasta (lotes) ----------

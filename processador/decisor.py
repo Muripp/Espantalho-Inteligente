@@ -74,8 +74,10 @@ class Decisor:
         return min(cortes + [self.padroes.get("confianca_min", 0.45)])
 
     # ---------- decisão ----------
-    def decidir(self, deteccoes: list, analise_id: str, ignorar_cooldown=False) -> Decisao:
-        validas = [d for d in deteccoes if d.confianca >= self.corte(d.classe)]
+    def decidir(self, deteccoes: list, analise_id: str, ignorar_cooldown=False,
+                threshold=None) -> Decisao:
+        validas = [d for d in deteccoes
+                   if d.confianca >= (threshold if threshold is not None else self.corte(d.classe))]
 
         if any(self.regra(d.classe).get("bloqueia_tudo") for d in validas):
             animais = [d for d in validas if not self.regra(d.classe).get("bloqueia_tudo")]

@@ -176,3 +176,28 @@ main { max-width: 1400px; margin: 0 auto; padding: 22px 28px 60px; display: grid
 .modal-info h4 { margin: 14px 0 6px; font-size: 13px; }
 .modal-info ul { margin: 0; padding-left: 18px; }
 .modal-fechar { position: absolute; top: 10px; right: 12px; border: 0; background: var(--fundo); color: var(--texto); width: 32px; height: 32px; border-radius: 50%; font-size: 15px; cursor: pointer; }
+
+.camera-container { position: relative; background: #101820; border-radius: 12px; overflow: hidden; min-height: 240px; }
+#camera-feed { display: block; width: 100%; max-height: 65vh; object-fit: contain; min-height: 240px; }
+#camera-aviso { position: absolute; inset: 0; display: grid; place-items: center; color: #cbd5e1; }
+#camera-aviso[hidden] { display: none; }
+
+#camera-feed[hidden], #camera-pausada[hidden] { display: none; }
+#camera-pausada { display: block; width: 100%; max-height: 65vh; object-fit: contain; }
+.controle-threshold { display: grid; gap: 10px; padding-top: 18px; }
+#threshold { width: 100%; accent-color: #2f6b3a; cursor: pointer; }
+#threshold-valor { font-weight: bold; }
+
+.controle-servos { border-top: 1px solid #ddd; margin-top: 18px; padding-top: 18px; display: grid; gap: 18px; }
+.reacao-status { display: flex; gap: 12px; align-items: center; padding: 16px; border-radius: 10px; background: #eef3ef; }
+.reacao-status p { margin: 5px 0 0; }
+.reacao-indicador { flex: 0 0 12px; height: 12px; border-radius: 50%; background: #7d8b81; }
+.reacao-status.em-movimento { background: #fff0cc; border: 1px solid #d99d22; }
+.em-movimento .reacao-indicador { background: #d18b00; animation: pulsar-servo 1s ease-in-out infinite; }
+.teste-servos { display: grid; gap: 10px; }
+.teste-servos .acoes { flex-wrap: wrap; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.camera-reacao { position: absolute; bottom: 16px; left: 16px; right: 16px; padding: 12px 16px; background: #ffdd88ed; color: #382900; border-radius: 8px; font-weight: bold; }
+.camera-reacao[hidden] { display: none; }
+@keyframes pulsar-servo { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .em-movimento .reacao-indicador { animation: none; } }

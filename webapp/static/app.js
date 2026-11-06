@@ -11,6 +11,7 @@ const ANIMAIS = {
   gato:         { e: "🐈", n: "Gato",         c: "#8e4ec6" },
   outro_animal: { e: "🦓", n: "Outro animal", c: "#5b8a72" },
   pessoa:       { e: "🧍", n: "Pessoa",       c: "#30a46c" },
+  teste_manual: { e: "⚙️", n: "Teste manual", c: "#64748b" },
 };
 const ORDEM = ["ave", "cachorro", "porco", "cavalo", "rato", "vaca", "gato", "outro_animal", "pessoa"];
 const DECISOES = {
@@ -95,7 +96,14 @@ async function atualizarGeral() {
   }
 }
 
+let cameraPausada = false;
+
 function renderStatus(s) {
+  const cameraOnline = Boolean(s?.camera_online);
+  $("status-camera").className = "pilula " + (cameraOnline ? "on" : "off");
+  $("status-camera").textContent = cameraPausada ? "Feed pausado" : cameraOnline ? "● Ao vivo" : "Câmera sem sinal";
+  $("camera-aviso").hidden = cameraOnline || cameraPausada;
+  $("camera-feed").style.visibility = cameraOnline && !cameraPausada ? "visible" : "hidden";
   const el = $("status-proc");
   if (!s) {
     el.className = "pilula off";
@@ -165,7 +173,7 @@ function renderGrafico(porHora) {
 
 function renderFeed(lista) {
   if (!lista.length) {
-    $("feed").innerHTML = '<li class="vazio-lista">Nada analisado ainda. Teste uma pasta aí em cima 👆</li>';
+    $("feed").innerHTML = '<li class="vazio-lista">Nenhum animal registrado ainda. A webcam está sendo monitorada.</li>';
     return;
   }
   $("feed").innerHTML = lista.map((a) => `
@@ -499,8 +507,136 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharModa
   await carregarLotes().catch(() => {});
   const salvo = ler("vigia.lote");
   const op = salvo && [...$("lotes-anteriores").options].find((o) => o.value === salvo);
-  if (op) abrirLote(salvo, op.textContent.split(" · ")[0]);
+  // O painel principal acompanha a webcam ao vivo.
   atualizarGeral();
   setInterval(atualizarGeral, 2000);
   setInterval(atualizarLote, 1000);
+})();
+
+$("camera-feed").addEventListener("error", () => {
+  setTimeout(() => { if (!cameraPausada) $("camera-feed").src = "/api/camera/stream?t=" + Date.now(); }, 2000);
+});
+
+$("btn-pausar-camera").addEventListener("click", () => {
+  const feed = $("camera-feed");
+  const canvas = $("camera-pausada");
+  cameraPausada = !cameraPausada;
+  if (cameraPausada) {
+    canvas.width = feed.naturalWidth || 640;
+    canvas.height = feed.naturalHeight || 480;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#101820";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (feed.naturalWidth) ctx.drawImage(feed, 0, 0, canvas.width, canvas.height);
+    feed.removeAttribute("src");
+  } else {
+    feed.src = "/api/camera/stream?t=" + Date.now();
+  }
+  canvas.hidden = !cameraPausada;
+  feed.hidden = cameraPausada;
+  $("btn-pausar-camera").textContent = cameraPausada ? "Retomar feed" : "Pausar feed";
+  $("btn-pausar-camera").setAttribute("aria-pressed", String(cameraPausada));
+  renderStatus(estado.status);
+});
+
+let filaThreshold = Promise.resolve();
+let versaoThreshold = 0;
+$("threshold").addEventListener("input", (e) => {
+  $("threshold-valor").textContent = e.target.value + "%";
+});
+$("threshold").addEventListener("change", (e) => {
+  const threshold = Number(e.target.value) / 100;
+  const versao = ++versaoThreshold;
+  $("threshold-status").textContent = "Aplicando…";
+  filaThreshold = filaThreshold.then(async () => {
+    try {
+      await api("/api/reconhecimento", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threshold }),
+      });
+      if (versao === versaoThreshold) $("threshold-status").textContent = "Salvo · aplicado na próxima análise";
+    } catch (e) {
+      if (versao === versaoThreshold) $("threshold-status").textContent = "Não foi possível salvar. Ajuste novamente para tentar.";
+    }
+  });
+});
+(async () => {
+  try {
+    const config = await api("/api/reconhecimento");
+    $("threshold").value = Math.round(config.threshold * 100);
+    $("threshold-valor").textContent = $("threshold").value + "%";
+    $("threshold").disabled = false;
+    $("threshold-status").textContent = "Aplicado às novas análises";
+  } catch (e) {
+    $("threshold-status").textContent = "Não foi possível carregar a configuração. Recarregue a página.";
+  }
+})();
+
+// Estado físico confirmado pelo processador e pelos ACKs do ESP.
+let solicitandoServo = false;
+let estadoServos = null;
+function renderServos(s) {
+  estadoServos = s;
+  const acao = s?.acao;
+  const ativo = Boolean(s?.ativo);
+  const manual = acao?.origem === "manual";
+  const nome = manual ? "Teste manual" : acao?.animal ? animal(acao.animal).n : "Animal";
+  const confianca = !manual && acao?.confianca != null ? ` · ${Math.round(acao.confianca * 100)}% de confiança` : "";
+  const servos = (acao?.servos || []).join(" e ");
+  let titulo = "Monitorando · aguardando animal";
+  let detalhe = "ESP conectado · servos prontos.";
+  if (!s?.online) {
+    titulo = "ESP sem conexão";
+    detalhe = "Testes indisponíveis. Aguardando processador e ESP conectados.";
+  } else if (s.teste_pendente || solicitandoServo) {
+    titulo = "Teste manual solicitado";
+    detalhe = "Aguardando envio ao ESP…";
+  } else if (ativo) {
+    titulo = manual ? "Teste manual em andamento" : `Reagindo a ${nome.toLowerCase()}`;
+    detalhe = `${nome}${confianca} · ${acao.status === "recebido" ? "servos em movimento" : "enviando comando ao ESP"} · três idas e voltas`;
+  } else if (acao?.status === "executado") {
+    titulo = manual ? "Teste manual concluído" : `Última reação: ${nome.toLowerCase()}`;
+    detalhe = `${manual ? `Servo ${servos || "1 e 2"}` : nome + confianca} · movimento concluído pelo ESP · retorno ao centro.`;
+  } else if (acao && ["erro", "sem_resposta"].includes(acao.status)) {
+    titulo = "Movimento sem confirmação";
+    detalhe = acao.erro || "O ESP não confirmou a execução. Tente novamente quando estiver disponível.";
+  }
+  $("reacao-titulo").textContent = titulo;
+  $("reacao-detalhe").textContent = detalhe;
+  $("reacao-status").classList.toggle("em-movimento", ativo);
+  $("camera-reacao").hidden = !ativo;
+  $("camera-reacao").textContent = `⚙ ${titulo}${confianca}`;
+  for (const btn of document.querySelectorAll("[data-teste-servo]")) {
+    btn.disabled = solicitandoServo || !s?.disponivel;
+  }
+}
+async function atualizarServos() {
+  try { renderServos(await api("/api/servos")); }
+  catch { renderServos(null); }
+}
+for (const btn of document.querySelectorAll("[data-teste-servo]")) {
+  btn.addEventListener("click", async () => {
+    if (solicitandoServo) return;
+    solicitandoServo = true;
+    renderServos(estadoServos);
+    $("teste-servo-mensagem").textContent = "Solicitando teste…";
+    try {
+      const r = await fetch("/api/servos/testar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ servo: btn.dataset.testeServo }),
+      });
+      const dados = await r.json();
+      if (!r.ok) throw new Error(dados.detail || "Não foi possível solicitar o teste");
+      $("teste-servo-mensagem").textContent = "Teste solicitado. Acompanhe o estado acima.";
+    } catch (e) {
+      $("teste-servo-mensagem").textContent = e.message;
+    } finally {
+      solicitandoServo = false;
+      await atualizarServos();
+    }
+  });
+}
+(async function acompanharServos() {
+  await atualizarServos();
+  setTimeout(acompanharServos, 500);
 })();

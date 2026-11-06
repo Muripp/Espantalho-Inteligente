@@ -1,0 +1,30 @@
+# Três idas e voltas por reconhecimento, retorno a 90 graus no fim.
+versao: 1
+respostas:
+  movimento_servos:
+  - esp32: torre1
+    acao: servo
+    params:
+      servo: 1
+      angulo: 70
+      duracao_ms: 400
+      repeticoes: 3
+      angulo_alternado: 110
+  - esp32: torre1
+    acao: servo
+    params:
+      servo: 2
+      angulo: 110
+      duracao_ms: 400
+      repeticoes: 3
+      angulo_alternado: 70
+regras:
+  padrao:
+    cooldown_s: 0
+    respostas:
+      movimento_servos: 1
+  pessoa:
+    bloqueia_tudo: true
+padroes:
+  confianca_min: 0.45
+  validade_ms: 2000

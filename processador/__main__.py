@@ -14,6 +14,7 @@ Rodar (de dentro da pasta vigia/):
 """
 
 import argparse
+import copy
 import logging
 import os
 import sys
@@ -21,7 +22,7 @@ import time
 
 import yaml
 
-from compartilhado.mensagens import ResultadoAnalise
+from compartilhado.mensagens import ResultadoAnalise, EventoESP32
 
 from .canal_esp32 import criar_canal
 from .decisor import Decisor
@@ -66,6 +67,29 @@ def main():
     # registra no máximo 1 dessas por animal a cada N s, pra não lotar a memória
     intervalo_aguardando = cfg_mem.get("intervalo_aguardando_s", 10)
     ultimo_aguardando = {}
+    acao_dashboard = None
+    ultimo_manual = None
+
+    def sincronizar_dashboard(forcar=False):
+        if not publicador:
+            return
+        no = getattr(canal, "nos", {}).get("torre1", {})
+        publicador.atuadores = {
+            "serial": cfg.get("canal_esp32", {}).get("tipo") == "serial",
+            "esp_online": bool(no.get("online") and "torre1" in getattr(canal, "abertas", {})),
+            "habilitado": no.get("status", {}).get("modo") == "servos",
+            "acao": acao_dashboard,
+        }
+        publicador.heartbeat(forcar=forcar)
+
+    def enviar_movimento(evento, origem, animal=None, confianca=None):
+        nonlocal acao_dashboard
+        acao_dashboard = {"id": evento.id, "origem": origem, "animal": animal,
+                          "confianca": confianca, "status": "enviado",
+                          "servos": [a["params"].get("servo") for a in evento.acoes
+                                     if a["acao"] == "servo"]}
+        canal.enviar(evento)
+        sincronizar_dashboard(forcar=True)
 
     log.info("pronto | modelo=%s | fonte=%s | canal=%s | webapp=%s", nome_modelo,
              cfg.get("fonte", {}).get("tipo"), cfg.get("canal_esp32", {}).get("tipo"), url)
@@ -76,6 +100,10 @@ def main():
             log.info("ESP32 %s: sensor %s -> pedindo foto", msg.no, msg.dados)
             fonte.pedir_foto(gatilho="pir")
         elif msg.tipo == "ack":
+            if acao_dashboard and msg.dados.get("evento") == acao_dashboard["id"]:
+                acao_dashboard["status"] = msg.dados.get("status")
+                acao_dashboard["erro"] = msg.dados.get("erro")
+                sincronizar_dashboard(forcar=True)
             memoria.registrar_esp32(msg)                 # recebido / executado / erro / sem_resposta
             if publicador:
                 publicador.atualizar_evento(msg.dados.get("evento"),
@@ -85,10 +113,35 @@ def main():
 
     try:
         while True:
+            sincronizar_dashboard()
             # 1. o que o ESP32 disse?
-            msg = canal.receber()
-            if msg:
+            while (msg := canal.receber()):
                 tratar(msg)
+
+            if (acao_dashboard and acao_dashboard["status"] in ("enviado", "recebido")
+                    and not getattr(canal, "pendentes", {})):
+                acao_dashboard.update(status="erro", erro="ESP não confirmou o fim do movimento")
+                sincronizar_dashboard(forcar=True)
+
+            # Em bancada, concluir a série física antes de reconhecer e acionar novamente.
+            if cfg.get("aguardar_atuadores") and getattr(canal, "pendentes", {}):
+                time.sleep(0.02)
+                continue
+
+            if publicador and publicador.comando_servo:
+                comando = publicador.comando_servo
+                publicador.comando_servo = None
+                if comando["id"] != ultimo_manual:
+                    alvo = comando["servo"]
+                    acoes = [copy.deepcopy(a) for a in decisor.respostas.get("movimento_servos", [])
+                             if alvo == "ambos" or str(a["params"].get("servo")) == alvo]
+                    if acoes:
+                        ultimo_manual = comando["id"]
+                        evento = EventoESP32(id=ultimo_manual, animal="teste_manual", confianca=1,
+                                             resposta="teste_manual", acoes=acoes)
+                        publicador.registrar_evento(evento)
+                        enviar_movimento(evento, "manual")
+                continue
 
             # 2. tem foto nova?
             img = fonte.proxima()
@@ -112,14 +165,20 @@ def main():
 
             # 3-6. detectar -> decidir -> enviar -> publicar
             t0 = time.perf_counter()
+            if publicador and publicador.threshold is not None:
+                detector.confianca_min = min(publicador.threshold, decisor.menor_corte)
             deteccoes = detector.detectar(img.imagem)
             t_det = (time.perf_counter() - t0) * 1000
 
             resultado = ResultadoAnalise(dispositivo=dispositivo, modelo=nome_modelo,
                                          imagem=img.info, deteccoes=[], decisao="nada")
             # em teste de pasta cada foto é independente: sem cooldown
+            sincronizar_dashboard(forcar=True)
+            if publicador and publicador.comando_servo:
+                continue  # Priorizar o teste solicitado durante a inferência.
             decisao = decisor.decidir(deteccoes, resultado.id,
-                                      ignorar_cooldown=bool(img.info.lote))
+                                      ignorar_cooldown=bool(img.info.lote),
+                                      threshold=publicador.threshold if publicador else None)
             resultado.deteccoes = decisao.deteccoes_validas
             resultado.decisao = decisao.decisao
             resultado.animal = decisao.animal
@@ -129,7 +188,7 @@ def main():
 
             # viu animal? -> é um EVENTO
             if decisao.evento:
-                canal.enviar(decisao.evento)                    # -> ESP32
+                enviar_movimento(decisao.evento, "animal", decisao.animal, decisao.confianca)
             resultado.tempo_ms = {"deteccao": round(t_det),
                                   "total": round((time.perf_counter() - t0) * 1000)}
             eh_evento = decisao.animal is not None

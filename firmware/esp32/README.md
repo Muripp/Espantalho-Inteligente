@@ -1,5 +1,8 @@
 # Receptor USB do ESP32-WROVER
 
+**Perfil físico com dois SG90:** veja [SERVOS.md](SERVOS.md). O texto abaixo
+descreve o perfil original de simulação `esp32-wrover`.
+
 Recebe eventos **do Raspberry Pi** após a detecção. Não executa visão computacional
 na placa. Compatível com `processador/canal_esp32/serial_uart.py`, JSON v1 por
 linha, 115200 baud, identidade `torre1`.

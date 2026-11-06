@@ -1,28 +1,27 @@
-# Configuração do processador NO PC. (No Raspberry Pi: config_pi.yaml)
-# Todas as opções: README.md, seção 12.
-
+# Webcam + ESP real; aguarda terminar os servos antes da próxima análise.
 dispositivo: pi-campo-1
 modelo: modelos/espantalho_aves.onnx
-respostas: respostas.yaml
+respostas: respostas_servos.yaml
 log: INFO
-
 fonte:
-  tipo: webapp            # webapp (botão "Testar pasta" do dashboard) | pasta | webcam | picamera
-  # pasta: ../fotos_teste # se tipo = pasta
-  # modo: camera         # se tipo = pasta: camera (finge ser a câmera) | teste
-  # camera: 0             # se tipo = webcam
-
+  tipo: webcam
+  camera: 0
+  largura: 640
+  altura: 480
+  formato: MJPG
+  periodico_s: 1
 canal_esp32:
-  tipo: webapp            # webapp (ESP32 virtual no dashboard) | vazio | serial | mqtt
-  # portas: { torre1: COM5 }   # se tipo = serial (ESP32 de verdade ligado no PC)
-
-memoria:                  # registro próprio do Pi (funciona sem rede)
-  pasta: memoria          # memoria/eventos.jsonl + memoria/fotos/
+  tipo: serial
+  portas:
+    torre1: /dev/ttyUSB0
+  baud: 115200
+memoria:
+  pasta: memoria
   salvar_foto: true
-  max_fotos: 5000         # apaga as fotos mais velhas depois disso (o .jsonl fica)
-  intervalo_aguardando_s: 10   # bicho parado: no máximo 1 registro "aguardando" por animal a cada 10 s
-
+  max_fotos: 5000
+  intervalo_aguardando_s: 10
 webapp:
-  ativado: true           # false = o Pi não manda nada pro dashboard (só ESP32 + memória)
+  ativado: true
   url: http://localhost:8000
-  enviar_foto: so_com_animal   # so_com_animal | sempre | nunca  (teste de pasta: sempre manda)
+  enviar_foto: so_com_animal
+aguardar_atuadores: true

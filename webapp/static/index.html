@@ -38,8 +38,45 @@
     <!-- cartões por animal -->
     <section id="cartoes" class="cartoes"></section>
 
-    <!-- testar pasta -->
-    <section class="painel" id="painel-teste">
+    <section class="painel" id="painel-camera">
+      <div class="painel-topo">
+        <div><h2>📷 Webcam ao vivo</h2><p class="sub">Monitoramento em tempo real · análise automática de animais</p></div>
+        <div class="acoes">
+          <span id="status-camera" class="pilula off">Conectando câmera…</span>
+          <button id="btn-pausar-camera" class="btn" aria-pressed="false">Pausar feed</button>
+        </div>
+      </div>
+      <div class="camera-container">
+        <img id="camera-feed" src="/api/camera/stream" alt="Transmissão ao vivo da webcam">
+        <canvas id="camera-pausada" hidden aria-label="Último quadro do feed pausado"></canvas>
+        <p id="camera-aviso">Aguardando imagens da webcam…</p>
+        <div id="camera-reacao" class="camera-reacao" hidden></div>
+      </div>
+      <div class="controle-threshold">
+        <label for="threshold">Confiança mínima: <output id="threshold-valor" for="threshold">45%</output></label>
+        <input id="threshold" type="range" min="1" max="100" step="1" value="45" disabled>
+        <p class="sub">Detecções abaixo desse valor não são registradas. Pausar o feed pausa apenas a visualização.</p>
+        <span id="threshold-status" class="sub" role="status">Carregando configuração…</span>
+      </div>
+      <div class="controle-servos">
+        <div id="reacao-status" class="reacao-status" role="status" aria-live="polite">
+          <span class="reacao-indicador" aria-hidden="true"></span>
+          <div><strong id="reacao-titulo">Conectando ao ESP…</strong><p id="reacao-detalhe" class="sub">Aguardando o estado dos servos.</p></div>
+        </div>
+        <div class="teste-servos">
+          <b>Testar movimento</b>
+          <div class="acoes">
+            <button class="btn" data-teste-servo="1" disabled>Testar servo 1</button>
+            <button class="btn" data-teste-servo="2" disabled>Testar servo 2</button>
+            <button class="btn primario" data-teste-servo="ambos" disabled>Testar os dois</button>
+          </div>
+          <p class="sub">Cada teste faz três idas e voltas e retorna ao centro. Funciona mesmo com o feed pausado.</p>
+          <p id="teste-servo-mensagem" class="sub" role="status"></p>
+        </div>
+      </div>
+    </section>
+    <!-- teste de pasta legado -->
+    <section class="painel" id="painel-teste" hidden style="display:none">
       <div class="painel-topo">
         <div>
           <h2>🧪 Testar pasta</h2>
@@ -111,7 +148,7 @@
         <section class="painel">
           <div class="painel-topo">
             <h2>📡 Eventos pro ESP32</h2>
-            <span class="sub">ESP32 virtual (simulado)</span>
+            <span class="sub">Servos · ESP32 por USB</span>
           </div>
           <ul id="comandos" class="lista-cmd"></ul>
         </section>

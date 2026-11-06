@@ -91,10 +91,10 @@ class Banco:
              ev.get("resposta"), json.dumps(ev.get("acoes", []), ensure_ascii=False),
              status, int(time.time() * 1000)))
 
-    def registrar_evento_recebido(self, ev: dict):
-        """O ESP32 virtual recebeu um evento."""
+    def registrar_evento_recebido(self, ev: dict, status="recebido"):
+        """Registra um evento manual ou recebido pelo ESP32 virtual."""
         with self.trava:
-            self._inserir_evento(self.con, ev, "recebido")
+            self._inserir_evento(self.con, ev, status)
             self.con.commit()
 
     def status_evento(self, id_ev: str, status: str):

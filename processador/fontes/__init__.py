@@ -18,7 +18,7 @@ def criar_fonte(config: dict, url_webapp: str) -> FonteDeImagens:
         return FontePasta(**opcoes)
     if tipo == "webcam":
         from .webcam import FonteWebcam
-        return FonteWebcam(**opcoes)
+        return FonteWebcam(url_webapp=url_webapp, **opcoes)
     if tipo == "picamera":
         from .picamera import FontePicamera
         return FontePicamera(**opcoes)

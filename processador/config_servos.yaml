@@ -1,0 +1,27 @@
+# Webcam + ESP real; aguarda terminar os servos antes da próxima análise.
+dispositivo: pi-campo-1
+modelo: modelos/espantalho_aves.onnx
+respostas: respostas_servos.yaml
+log: INFO
+fonte:
+  tipo: webcam
+  camera: 0
+  largura: 640
+  altura: 480
+  formato: MJPG
+  periodico_s: 1
+canal_esp32:
+  tipo: serial
+  portas:
+    torre1: /dev/ttyUSB0
+  baud: 115200
+memoria:
+  pasta: memoria
+  salvar_foto: true
+  max_fotos: 5000
+  intervalo_aguardando_s: 10
+webapp:
+  ativado: true
+  url: http://localhost:8000
+  enviar_foto: so_com_animal
+aguardar_atuadores: true

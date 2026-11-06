@@ -59,6 +59,12 @@ class Publicador:
         base = url_webapp.rstrip("/")
         self.url_analises = base + "/api/analises"
         self.url_status = base + "/api/eventos-esp32/{}/status"
+        self.url_heartbeat = base + "/api/processador/heartbeat"
+        self.url_eventos = base + "/api/eventos-esp32"
+        self.ultimo_heartbeat = -1e9
+        self.threshold = None
+        self.atuadores = {}
+        self.comando_servo = None
         self.enviar_foto = enviar_foto
         self.pendentes = pasta_pendentes
         os.makedirs(self.pendentes, exist_ok=True)
@@ -74,6 +80,21 @@ class Publicador:
             return False
         return resultado.decisao != "nada"
 
+    def heartbeat(self, forcar=False):
+        agora = time.monotonic()
+        if forcar or agora - self.ultimo_heartbeat >= 2:
+            self.ultimo_heartbeat = agora
+            try:
+                r = self.sessao.post(self.url_heartbeat, json={"atuadores": self.atuadores}, timeout=2)
+                r.raise_for_status()
+                resposta = r.json()
+                self.comando_servo = resposta.get("comando_servo")
+                valor = resposta.get("threshold")
+                if isinstance(valor, (int, float)) and 0.01 <= valor <= 1:
+                    self.threshold = float(valor)
+            except (requests.RequestException, ValueError):
+                pass
+
     def publicar(self, resultado: ResultadoAnalise, imagem_anotada=None):
         if imagem_anotada is not None and self.precisa_foto(resultado):
             resultado.foto_jpeg_b64 = jpeg_b64(imagem_anotada)
@@ -86,6 +107,9 @@ class Publicador:
 
     def atualizar_evento(self, id_evento: str, status: str, dados: dict):
         self._post(self.url_status.format(id_evento), {"status": status, **dados})
+
+    def registrar_evento(self, evento):
+        self._post(self.url_eventos, evento.to_dict())
 
     def reenviar_pendentes(self):
         """Chamado no loop; tenta reenviar no máximo a cada 30 s."""
