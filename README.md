@@ -1,5 +1,7 @@
 # VIGIA: espantalho inteligente
 
+Link da apresentação: https://www.canva.com/design/DAHau4RbQMw/Udgdpd-J2kZLnamWnOs6jg/edit
+
 Uma câmera fica olhando a plantação. Quando aparece um bicho, um modelo de visão computacional diz **qual bicho é**. O sistema escolhe **o susto certo** pra ele (som de gavião pra ave, sirene pra porco...) e manda um **ESP32** executar. Tudo fica registrado e aparece num **dashboard**.
 
 ```
